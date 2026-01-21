@@ -4,20 +4,19 @@ import { Client } from "@upstash/qstash";
 
 const qstashToken = process.env.QSTASH_TOKEN;
 const queueName = process.env.QSTASH_QUEUE_NAME || "imggen";
-const appUrl = process.env.APP_URL;
-
 if (!qstashToken) {
   throw new Error("Missing QSTASH_TOKEN.");
 }
 
-if (!appUrl) {
-  throw new Error("Missing APP_URL for QStash destination.");
-}
-
 export const qstash = new Client({ token: qstashToken });
 
-export function getWorkerUrl() {
-  return `${appUrl.replace(/\/$/, "")}/api/worker/generate`;
+export function getWorkerUrl(baseUrl?: string) {
+  const resolvedBase = (baseUrl || process.env.APP_URL || "").replace(/\/$/, "");
+  if (!resolvedBase) {
+    throw new Error("缺少 APP_URL，用于 QStash 回调地址。");
+  }
+  console.info("[qstash] worker base url:", resolvedBase);
+  return `${resolvedBase}/api/worker/generate`;
 }
 
 export function getQueueName() {

@@ -6,24 +6,18 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { TaskStatus, TaskItem } from "@/types";
 
 const statusLabels: Record<TaskStatus, string> = {
-  queued: "Queued",
-  processing: "Generating",
-  completed: "Completed",
-  failed: "Failed",
+  queued: "排队中",
+  processing: "生成中",
+  completed: "已完成",
+  failed: "失败",
 };
 
-const statusLabels: Record<TaskStatus, string> = {
-  queued: "Queued",
-  processing: "Generating",
-  completed: "Completed",
-  failed: "Failed",
-};
-
-const formatter = new Intl.DateTimeFormat("en-US", {
+const formatter = new Intl.DateTimeFormat("zh-CN", {
   month: "short",
   day: "2-digit",
   hour: "2-digit",
   minute: "2-digit",
+  hour12: false,
 });
 
 function formatDate(value?: string | null) {
@@ -125,7 +119,7 @@ export default function Home() {
     setIsSubmitting(false);
 
     if (!response.ok) {
-      setTaskError(data?.error || "Failed to create task.");
+      setTaskError(data?.error || "创建任务失败，请稍后再试。");
       return;
     }
 
@@ -155,7 +149,7 @@ export default function Home() {
     setEmailSent(false);
   };
 
-  const statusLabel = taskStatus ? statusLabels[taskStatus] ?? taskStatus : "Idle";
+  const statusLabel = taskStatus ? statusLabels[taskStatus] ?? taskStatus : "未开始";
 
   return (
     <main className="relative min-h-screen overflow-hidden px-6 pb-24 pt-10 text-zinc-950">
@@ -170,9 +164,9 @@ export default function Home() {
               <span className="font-display text-lg">PA</span>
             </div>
             <div>
-              <p className="font-display text-2xl tracking-tight">Prompt Atlas</p>
+              <p className="font-display text-2xl tracking-tight">提示词星图</p>
               <p className="text-sm text-zinc-500">
-                Async image studio with queue control.
+                带队列控制的异步文生图工作室。
               </p>
             </div>
           </div>
@@ -180,13 +174,13 @@ export default function Home() {
           <div className="rounded-2xl border border-white/70 bg-white/70 px-4 py-3 shadow-sm backdrop-blur">
             {userEmail ? (
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-                <span className="text-sm text-zinc-600">Signed in as {userEmail}</span>
+                <span className="text-sm text-zinc-600">已登录：{userEmail}</span>
                 <button
                   type="button"
                   onClick={handleSignOut}
                   className="rounded-full border border-zinc-900/10 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:border-zinc-900/30 hover:text-zinc-900"
                 >
-                  Sign out
+                  退出登录
                 </button>
               </div>
             ) : (
@@ -195,7 +189,7 @@ export default function Home() {
                   type="email"
                   value={emailInput}
                   onChange={(event) => setEmailInput(event.target.value)}
-                  placeholder="you@email.com"
+                  placeholder="你@邮箱.com"
                   className="w-full rounded-full border border-zinc-200 bg-white/70 px-4 py-2 text-sm outline-none focus:border-zinc-900/40"
                 />
                 <button
@@ -203,10 +197,10 @@ export default function Home() {
                   onClick={handleSignIn}
                   className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
                 >
-                  Send link
+                  发送登录链接
                 </button>
                 {emailSent && (
-                  <span className="text-xs text-zinc-500">Check your inbox.</span>
+                  <span className="text-xs text-zinc-500">请查收邮箱。</span>
                 )}
               </div>
             )}
@@ -218,30 +212,27 @@ export default function Home() {
             <div className="flex flex-col gap-6">
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-zinc-400">
-                  Prompt Console
+                  提示词工作台
                 </p>
                 <h1 className="font-display mt-3 text-4xl leading-tight text-zinc-900 md:text-5xl">
-                  Turn a line of text into a campaign-ready visual.
+                  用一句话生成可用于宣传的图片。
                 </h1>
                 <p className="mt-4 max-w-xl text-base text-zinc-600">
-                  Each request becomes a queued task. Anonymous users get three
-                  attempts per day. Sign in to generate without limits.
+                  每次提交都会进入队列。匿名用户每日 3 次，登录后不限次数。
                 </p>
               </div>
 
               <div className="rounded-2xl border border-zinc-200/70 bg-white/90 p-5">
-                <label className="text-sm font-medium text-zinc-700">
-                  Prompt
-                </label>
+                <label className="text-sm font-medium text-zinc-700">提示词</label>
                 <textarea
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
-                  placeholder="A futuristic tea lounge floating above the clouds..."
+                  placeholder="例：漂浮在云端的未来茶室，暖金色光线。"
                   className="mt-3 h-28 w-full resize-none rounded-2xl border border-zinc-200 bg-white/80 px-4 py-3 text-sm leading-relaxed outline-none focus:border-zinc-900/40"
                 />
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-xs text-zinc-500">
-                    Status: <span className="text-zinc-900">{statusLabel}</span>
+                    当前状态：<span className="text-zinc-900">{statusLabel}</span>
                   </div>
                   <button
                     type="button"
@@ -249,7 +240,7 @@ export default function Home() {
                     disabled={isSubmitting}
                     className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-zinc-900/20 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isSubmitting ? "Sending..." : "Generate"}
+                    {isSubmitting ? "提交中..." : "开始生成"}
                   </button>
                 </div>
                 {taskError && (
@@ -262,41 +253,41 @@ export default function Home() {
           <div className="space-y-6">
             <div className="rounded-[28px] border border-white/60 bg-white/70 p-6 shadow-lg shadow-zinc-950/5 backdrop-blur animate-[fadeUp_900ms_ease-out]">
               <p className="text-xs uppercase tracking-[0.3em] text-zinc-400">
-                Live Task
+                当前任务
               </p>
               <div className="mt-4 rounded-2xl border border-dashed border-zinc-200/80 bg-white/80 p-4 text-sm text-zinc-600">
                 {taskId ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-xs text-zinc-500">
-                      <span>Task ID</span>
+                      <span>任务 ID</span>
                       <span className="font-mono text-zinc-700">{taskId}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Status</span>
+                      <span>状态</span>
                       <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-white">
                         {statusLabel}
                       </span>
                     </div>
                   </div>
                 ) : (
-                  <p>No active task yet. Generate to start a queue slot.</p>
+                  <p>暂无任务，提交后将进入队列。</p>
                 )}
               </div>
               {taskImage && (
                 <div className="mt-5 overflow-hidden rounded-2xl border border-zinc-200/70">
-                  <img src={taskImage} alt="Generated result" className="w-full" />
+                  <img src={taskImage} alt="生成结果" className="w-full" />
                 </div>
               )}
             </div>
 
             <div className="rounded-[28px] border border-white/60 bg-white/70 p-6 shadow-lg shadow-zinc-950/5 backdrop-blur animate-[fadeUp_1000ms_ease-out]">
               <p className="text-xs uppercase tracking-[0.3em] text-zinc-400">
-                Recent History
+                最近记录
               </p>
               <div className="mt-5 space-y-4">
                 {history.length === 0 ? (
                   <p className="text-sm text-zinc-500">
-                    No history yet. Generated images will appear here.
+                    暂无记录，生成结果会展示在这里。
                   </p>
                 ) : (
                   history.map((task) => (
@@ -317,7 +308,7 @@ export default function Home() {
                         <div className="mt-3 overflow-hidden rounded-xl border border-zinc-200/70">
                           <img
                             src={task.imageUrl}
-                            alt="Generated"
+                            alt="生成图片"
                             className="w-full"
                           />
                         </div>
@@ -338,16 +329,16 @@ export default function Home() {
         <section className="mt-16 grid gap-6 md:grid-cols-3">
           {[
             {
-              title: "Queue-aware",
-              body: "Every request is enqueued through QStash for safe retries.",
+              title: "队列调度",
+              body: "每个请求都会进入 QStash 队列，确保稳定重试。",
             },
             {
-              title: "Async Generation",
-              body: "ModelScope handles the heavy lifting while tasks update live.",
+              title: "异步生成",
+              body: "模型在后台完成生成，前台实时更新状态。",
             },
             {
-              title: "History Stored",
-              body: "Completed outputs are stored in Supabase for easy recall.",
+              title: "历史留存",
+              body: "生成结果写入 Supabase，随时回看与复用。",
             },
           ].map((item) => (
             <div

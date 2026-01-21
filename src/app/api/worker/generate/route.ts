@@ -10,15 +10,18 @@ const currentSigningKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
 const nextSigningKey = process.env.QSTASH_NEXT_SIGNING_KEY;
 
 if (!currentSigningKey || !nextSigningKey) {
-  throw new Error("Missing QStash signing keys.");
+  throw new Error("缺少 QStash 签名密钥。");
 }
 
 async function handler(request: Request) {
   const payload = await request.json().catch(() => null);
-  const taskId = typeof payload?.taskId === "string" ? payload.taskId : "";
+  const taskId =
+    typeof payload?.taskId === "string" || typeof payload?.taskId === "number"
+      ? payload.taskId
+      : "";
 
   if (!taskId) {
-    return NextResponse.json({ error: "taskId is required." }, { status: 400 });
+    return NextResponse.json({ error: "缺少 taskId。" }, { status: 400 });
   }
 
   const { data: existingTask, error: fetchError } = await supabaseAdmin
@@ -28,7 +31,7 @@ async function handler(request: Request) {
     .single();
 
   if (fetchError || !existingTask) {
-    return NextResponse.json({ error: "Task not found." }, { status: 404 });
+    return NextResponse.json({ error: "任务不存在。" }, { status: 404 });
   }
 
   if (existingTask.status === "completed") {
@@ -66,18 +69,18 @@ async function handler(request: Request) {
 
     return NextResponse.json({ ok: true, status: "completed" });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown worker error.";
+    const message = error instanceof Error ? error.message : "未知错误。";
+    const displayMessage = `生成失败：${message}`;
 
     await supabaseAdmin
       .from("tasks")
       .update({
         status: "failed",
-        error: message.slice(0, 500),
+        error: displayMessage.slice(0, 500),
       })
       .eq("id", taskId);
 
-    return NextResponse.json({ error: "Generation failed." }, { status: 500 });
+    return NextResponse.json({ error: "生成失败。" }, { status: 500 });
   }
 }
 

@@ -32,7 +32,7 @@ export async function GET() {
 
   if (error) {
     return NextResponse.json(
-      { error: "Failed to load tasks." },
+      { error: "加载任务失败，请稍后再试。" },
       { status: 500 }
     );
   }

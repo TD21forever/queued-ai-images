@@ -8,9 +8,9 @@ const ANON_COOKIE = "anon_id";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { taskId: string } }
+  { params }: { params: Promise<{ taskId: string }> }
 ) {
-  const taskId = params.taskId;
+  const { taskId } = await params;
 
   const supabase = await createSupabaseServerClient();
   const {
@@ -29,15 +29,15 @@ export async function GET(
     .single();
 
   if (error || !task) {
-    return NextResponse.json({ error: "Task not found." }, { status: 404 });
+    return NextResponse.json({ error: "任务不存在。" }, { status: 404 });
   }
 
   if (user?.id) {
     if (task.user_id !== user.id) {
-      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+      return NextResponse.json({ error: "无权限访问该任务。" }, { status: 403 });
     }
   } else if (!anonId || task.anon_id !== anonId) {
-    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    return NextResponse.json({ error: "无权限访问该任务。" }, { status: 403 });
   }
 
   return NextResponse.json({

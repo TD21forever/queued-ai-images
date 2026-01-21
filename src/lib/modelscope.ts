@@ -23,12 +23,12 @@ export async function startImageTask(prompt: string, model: string) {
   });
 
   if (!response.ok) {
-    throw new Error(`ModelScope start failed: ${response.status}`);
+    throw new Error(`ModelScope 提交失败: ${response.status}`);
   }
 
   const data = (await response.json()) as { task_id?: string };
   if (!data.task_id) {
-    throw new Error("ModelScope response missing task_id.");
+    throw new Error("ModelScope 返回缺少 task_id。");
   }
 
   return data.task_id;
@@ -52,7 +52,7 @@ export async function pollImageTask(
     });
 
     if (!response.ok) {
-      throw new Error(`ModelScope poll failed: ${response.status}`);
+      throw new Error(`ModelScope 轮询失败: ${response.status}`);
     }
 
     const data = (await response.json()) as {
@@ -63,17 +63,17 @@ export async function pollImageTask(
     if (data.task_status === "SUCCEED") {
       const imageUrl = data.output_images?.[0];
       if (!imageUrl) {
-        throw new Error("ModelScope success without output image.");
+        throw new Error("ModelScope 返回成功但缺少图片。");
       }
       return imageUrl;
     }
 
     if (data.task_status === "FAILED") {
-      throw new Error("ModelScope generation failed.");
+      throw new Error("ModelScope 生成失败。");
     }
 
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 
-  throw new Error("ModelScope generation timed out.");
+  throw new Error("ModelScope 生成超时。");
 }

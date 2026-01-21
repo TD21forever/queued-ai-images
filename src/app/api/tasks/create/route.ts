@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
   if (!prompt) {
     return NextResponse.json(
-      { error: "Prompt is required." },
+      { error: "请输入提示词。" },
       { status: 400 }
     );
   }
@@ -59,14 +59,14 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json(
-        { error: "Failed to check usage limits." },
+        { error: "次数校验失败，请稍后再试。" },
         { status: 500 }
       );
     }
 
     if ((count ?? 0) >= ANON_DAILY_LIMIT) {
       return NextResponse.json(
-        { error: "Daily limit reached." },
+        { error: "今日免费次数已用完。" },
         { status: 429 }
       );
     }
@@ -88,25 +88,27 @@ export async function POST(request: Request) {
 
   if (insertError || !task) {
     return NextResponse.json(
-      { error: "Failed to create task." },
+      { error: "创建任务失败，请稍后再试。" },
       { status: 500 }
     );
   }
 
   try {
-    await qstash.publishJSON({
-      url: getWorkerUrl(),
-      queue: getQueueName(),
+    const baseUrl = process.env.APP_URL || new URL(request.url).origin;
+    await qstash
+      .queue({ queueName: getQueueName() })
+      .enqueueJSON({
+      url: getWorkerUrl(baseUrl),
       body: { taskId: task.id },
     });
   } catch (error) {
     await supabaseAdmin
       .from("tasks")
-      .update({ status: "failed", error: "Failed to enqueue task." })
+      .update({ status: "failed", error: "任务入队失败。" })
       .eq("id", task.id);
 
     return NextResponse.json(
-      { error: "Failed to enqueue task." },
+      { error: "任务入队失败，请稍后再试。" },
       { status: 502 }
     );
   }

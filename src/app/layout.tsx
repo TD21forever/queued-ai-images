@@ -18,8 +18,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Prompt Atlas",
-  description: "A lightweight prompt-to-image studio with queueing.",
+  title: "提示词星图",
+  description: "带队列控制的轻量文生图工作室。",
 };
 
 export default function RootLayout({
