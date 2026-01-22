@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const ANON_COOKIE = "anon_id";
 const ANON_DAILY_LIMIT = 3;
+const DEADLINE_MS = 2 * 60 * 1000;
 
 async function getOrCreateAnonId() {
   const cookieStore = await cookies();
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
   }
 
   const model = process.env.MODELSCOPE_MODEL || "Tongyi-MAI/Z-Image-Turbo";
+  const deadlineAt = new Date(Date.now() + DEADLINE_MS).toISOString();
 
   const { data: task, error: insertError } = await supabaseAdmin
     .from("tasks")
@@ -82,6 +84,7 @@ export async function POST(request: Request) {
       prompt,
       status: "queued",
       model,
+      deadline_at: deadlineAt,
     })
     .select("id, status")
     .single();
@@ -101,7 +104,7 @@ export async function POST(request: Request) {
       url: getWorkerUrl(baseUrl),
       body: { taskId: task.id },
     });
-  } catch (error) {
+  } catch {
     await supabaseAdmin
       .from("tasks")
       .update({ status: "failed", error: "任务入队失败。" })

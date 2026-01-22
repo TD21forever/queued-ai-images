@@ -12,12 +12,20 @@ create table if not exists public.tasks (
   prompt text not null,                                     -- 图像生成提示词
   status task_status not null default 'queued',             -- 任务状态：排队中、处理中、已完成、失败（枚举类型）
   model text,                                               -- 使用的 AI 模型
+  deadline_at timestamptz not null default (now() + interval '2 minutes'), -- 任务截止时间（2 分钟内应到终态）
+  processing_started_at timestamptz,                        -- 开始处理时间
+  lease_expires_at timestamptz,                             -- 处理租约到期时间（60 秒）
   image_url text,                                           -- 生成的图像 URL
   error text,                                               -- 错误信息
   created_at timestamptz not null default now(),            -- 创建时间
   updated_at timestamptz not null default now(),            -- 更新时间
   completed_at timestamptz                                  -- 完成时间
 );
+
+-- 迁移用：如果你已有 tasks 表但缺少字段，可单独执行下面的 ALTER
+-- alter table public.tasks add column if not exists deadline_at timestamptz not null default (now() + interval '2 minutes');
+-- alter table public.tasks add column if not exists processing_started_at timestamptz;
+-- alter table public.tasks add column if not exists lease_expires_at timestamptz;
 
 -- 创建索引：按用户 ID 和创建时间降序查询优化
 create index if not exists tasks_user_id_created_at_idx

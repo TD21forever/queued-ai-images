@@ -6,6 +6,8 @@ import { pollImageTask, startImageTask } from "@/lib/modelscope";
 
 export const runtime = "nodejs";
 
+const LEASE_MS = 60 * 1000;
+
 const currentSigningKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
 const nextSigningKey = process.env.QSTASH_NEXT_SIGNING_KEY;
 
@@ -24,9 +26,14 @@ async function handler(request: Request) {
     return NextResponse.json({ error: "缺少 taskId。" }, { status: 400 });
   }
 
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const leaseExpiresAt = new Date(now.getTime() + LEASE_MS);
+  const leaseExpiresAtIso = leaseExpiresAt.toISOString();
+
   const { data: existingTask, error: fetchError } = await supabaseAdmin
     .from("tasks")
-    .select("id, status, prompt, model")
+    .select("id, status, prompt, model, deadline_at, lease_expires_at")
     .eq("id", taskId)
     .single();
 
@@ -34,29 +41,71 @@ async function handler(request: Request) {
     return NextResponse.json({ error: "任务不存在。" }, { status: 404 });
   }
 
+  if (existingTask.deadline_at && new Date(existingTask.deadline_at) <= now) {
+    await supabaseAdmin
+      .from("tasks")
+      .update({ status: "failed", error: "超时：已超过截止时间。" })
+      .eq("id", taskId)
+      .in("status", ["queued", "processing"]);
+    return NextResponse.json({ ok: true, status: "failed" });
+  }
+
   if (existingTask.status === "completed") {
     return NextResponse.json({ ok: true, status: "completed" });
   }
 
+  if (existingTask.status === "failed") {
+    return NextResponse.json({ ok: true, status: "failed" });
+  }
+
+  if (existingTask.status === "processing") {
+    const lease = existingTask.lease_expires_at
+      ? new Date(existingTask.lease_expires_at)
+      : null;
+    if (!lease || lease <= now) {
+      await supabaseAdmin
+        .from("tasks")
+        .update({ status: "failed", error: "超时：处理租约已到期。" })
+        .eq("id", taskId)
+        .eq("status", "processing");
+      return NextResponse.json({ ok: true, status: "failed" });
+    }
+    return NextResponse.json({ ok: true, status: "processing" });
+  }
+
+  // 抢占处理权：仅 queued 且未超过 deadline 的任务能进入 processing，并设置 60s 租约
   const { data: taskToProcess } = await supabaseAdmin
     .from("tasks")
-    .update({ status: "processing" })
+    .update({
+      status: "processing",
+      processing_started_at: nowIso,
+      lease_expires_at: leaseExpiresAtIso,
+      error: null,
+    })
     .eq("id", taskId)
-    .in("status", ["queued", "failed"])
-    .select("id, prompt, model")
+    .eq("status", "queued")
+    .gt("deadline_at", nowIso)
+    .select("id, prompt, model, lease_expires_at")
     .single();
 
   if (!taskToProcess) {
-    return NextResponse.json({ ok: true, status: existingTask.status });
+    return NextResponse.json({ ok: true, status: "queued" });
   }
 
   try {
     const model =
       taskToProcess.model || process.env.MODELSCOPE_MODEL || "Tongyi-MAI/Z-Image-Turbo";
 
-    const imageUrl = await pollImageTask(
-      await startImageTask(taskToProcess.prompt, model)
+    const timeBudgetMs = Math.max(
+      5_000,
+      new Date(taskToProcess.lease_expires_at).getTime() - Date.now() - 3_000
     );
+
+    const providerTaskId = await startImageTask(taskToProcess.prompt, model);
+    const imageUrl = await pollImageTask(providerTaskId, {
+      timeoutMs: timeBudgetMs,
+      intervalMs: 5_000,
+    });
 
     await supabaseAdmin
       .from("tasks")
@@ -65,7 +114,9 @@ async function handler(request: Request) {
         image_url: imageUrl,
         completed_at: new Date().toISOString(),
       })
-      .eq("id", taskId);
+      .eq("id", taskId)
+      .eq("status", "processing")
+      .eq("lease_expires_at", taskToProcess.lease_expires_at);
 
     return NextResponse.json({ ok: true, status: "completed" });
   } catch (error) {
@@ -78,7 +129,9 @@ async function handler(request: Request) {
         status: "failed",
         error: displayMessage.slice(0, 500),
       })
-      .eq("id", taskId);
+      .eq("id", taskId)
+      .eq("status", "processing")
+      .eq("lease_expires_at", taskToProcess.lease_expires_at);
 
     return NextResponse.json({ error: "生成失败。" }, { status: 500 });
   }
