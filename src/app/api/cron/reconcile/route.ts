@@ -1,25 +1,22 @@
 import "server-only";
 
 import { NextResponse } from "next/server";
+import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-function isAuthorized(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    return false;
-  }
-  const auth = request.headers.get("authorization") || "";
-  return auth === `Bearer ${secret}`;
+const currentSigningKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
+const nextSigningKey = process.env.QSTASH_NEXT_SIGNING_KEY;
+
+if (!currentSigningKey || !nextSigningKey) {
+  throw new Error("缺少 QStash 签名密钥。");
 }
 
-export async function POST(request: Request) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
+
+async function handler() {
   const nowIso = new Date().toISOString();
 
   const { data: deadlineFailed, error: deadlineError } = await supabaseAdmin
@@ -57,3 +54,12 @@ export async function POST(request: Request) {
   });
 }
 
+const verifiedHandler = verifySignatureAppRouter(handler, {
+  currentSigningKey,
+  nextSigningKey,
+});
+
+export async function POST(request: Request) {
+
+  return verifiedHandler(request);
+}
